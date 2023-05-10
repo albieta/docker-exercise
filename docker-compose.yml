@@ -1,0 +1,92 @@
+version: '3'
+services:
+
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - certs:/etc/nginx/certs
+    networks:
+      - proxy-tier
+
+  letsencrypt-nginx-proxy-companion:
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    container_name: letsencrypt-nginx-proxy-companion
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - certs
+      - html
+      - vhost
+    networks:
+      - proxy-tier
+
+  mongo:
+    image: mongo:3.6
+    restart: always
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - db-tier
+      
+  backoffice:
+    image: albieta/backoffice_ea:1.1.4
+    restart: always
+    environment:
+      - VIRTUAL_HOST=backoffice.arg.bridge2belong.cat
+      - CERT_NAME=backoffice.arg.bridge2belong.cat
+      - LETSENCRYPT_HOST=backoffice.arg.bridge2belong.cat
+      - LETSENCRYPT_EMAIL=albaromagomez@gmail.com
+    networks:
+      - proxy-tier
+
+  web:
+    image: albieta/web_ea:0.0.8
+    restart: always
+    environment:
+      - VIRTUAL_HOST=www.ea.bridge2belong.cat
+      - CERT_NAME=www.ea.bridge2belong.cat
+      - LETSENCRYPT_HOST=www.ea.bridge2belong.cat
+      - LETSENCRYPT_EMAIL=albaromagomez@gmail.com
+    networks:
+      - proxy-tier
+      
+  backend:
+    image: albieta/backend_ea:1.1.4
+    restart: always
+    environment:
+      - VIRTUAL_HOST=api.arg.bridge2belong.cat
+      - CERT_NAME=api.arg.bridge2belong.cat
+      - LETSENCRYPT_HOST=api.arg.bridge2belong.cat
+      - LETSENCRYPT_EMAIL=albaromagomez@gmail.com
+      - DB_URI=mongodb://mongo:27017/bridgetobelong
+    depends_on:
+      - mongo
+    networks:
+      - db-tier
+      - proxy-tier
+
+volumes:
+  mongo-data:
+    driver: local
+  vhost:
+    driver: local
+  certs:
+    driver: local
+  html:
+    driver: local
+    
+networks:
+  db-tier:
+    driver: bridge
+  proxy-tier:
+    driver: bridge
+
+
+
+
+
